@@ -10,6 +10,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          pdf: ['jspdf', 'html2canvas', 'html2pdf.js']
+        }
+      }
+    }
   }
 })
