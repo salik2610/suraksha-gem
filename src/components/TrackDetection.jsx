@@ -288,7 +288,10 @@ const TrackDetection = ({ appData, addAlert }) => {
     const API_KEY = (typeof window !== 'undefined' && window.GEMINI_API_KEY) || INLINE_API_KEY
 
     if (!API_KEY || API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-      throw new Error('Missing Gemini API key. Set window.GEMINI_API_KEY or replace INLINE_API_KEY.')
+      // Fallback if API key is missing
+      const fallback = generateEnhancedSimulatedAnalysis(filename || 'image.jpg')
+      fallback.error = 'Using simulated analysis - API key missing'
+      return fallback
     }
 
     // Gemini 1.5 Flash vision via REST (multimodal)
@@ -319,14 +322,28 @@ const TrackDetection = ({ appData, addAlert }) => {
       }
     }
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
+    let response
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+    } catch (networkError) {
+      // Network failure: return simulated analysis instead of throwing
+      const fallback = generateEnhancedSimulatedAnalysis(filename || 'image.jpg')
+      fallback.error = 'Using simulated analysis - network error contacting AI service'
+      return fallback
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
+      // For overload/ratelimit or server errors, return simulated analysis instead of throwing
+      if (response.status === 503 || response.status === 429 || response.status >= 500) {
+        const fallback = generateEnhancedSimulatedAnalysis(filename || 'image.jpg')
+        fallback.error = 'Using simulated analysis - AI service temporarily unavailable'
+        return fallback
+      }
       console.error('Gemini API Error:', errorText)
       throw new Error(`Gemini request failed: ${response.status} - ${errorText}`)
     }
